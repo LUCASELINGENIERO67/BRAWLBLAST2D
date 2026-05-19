@@ -1,0 +1,15 @@
+{
+"name": "brawlblast2donline",
+"version": "1.0.0",
+"description": "A Brawl Blast 2 Online clone built with Phaser 3.",
+"main": "index.js",
+"scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1"
+},
+"keywords": [],
+"author": "Lucas",
+"license": "ISC",
+"dependencies": {
+    "wss": "^8.20.0"
+}
+}

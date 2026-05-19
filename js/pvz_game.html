@@ -1,0 +1,1328 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Plants vs Zombies - Garden Defense</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            background: linear-gradient(135deg, #2d5016 0%, #1a3009 100%);
+            font-family: 'Arial', sans-serif;
+            overflow: hidden;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            min-height: 100vh;
+        }
+
+        #gameContainer {
+            position: relative;
+            border: 3px solid #8B4513;
+            border-radius: 10px;
+            box-shadow: 0 0 30px rgba(0, 0, 0, 0.5);
+        }
+
+        #gameCanvas {
+            display: block;
+            background: linear-gradient(to bottom, #87CEEB 0%, #98D98E 40%, #7CB342 100%);
+            border-radius: 7px;
+        }
+
+        #ui {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            pointer-events: none;
+            z-index: 10;
+        }
+
+        #gameMenu {
+            position: absolute;
+            inset: 0;
+            background: linear-gradient(135deg, #1a3009 0%, #0d1804 100%);
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            z-index: 100;
+            pointer-events: all;
+        }
+
+        .game-title {
+            font-family: 'Arial Black', sans-serif;
+            font-size: 48px;
+            color: #FFD700;
+            text-shadow: 3px 3px 6px rgba(0, 0, 0, 0.7);
+            margin-bottom: 20px;
+            letter-spacing: 2px;
+        }
+
+        .menu-btn {
+            width: 250px;
+            padding: 15px;
+            margin: 10px;
+            background: linear-gradient(135deg, #4CAF50 0%, #45a049 100%);
+            border: none;
+            border-radius: 10px;
+            color: white;
+            font-size: 18px;
+            font-weight: bold;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            box-shadow: 0 4px 8px rgba(0, 0, 0, 0.3);
+        }
+        
+        .menu-btn:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 6px 12px rgba(0, 0, 0, 0.4);
+        }
+        
+        .keyboard-selected {
+            transform: translateY(-2px);
+            box-shadow: 0 6px 12px rgba(255, 215, 0, 0.6);
+            border: 3px solid #FFD700;
+        }
+
+        .btn-start {
+            background: linear-gradient(135deg, #4CAF50, #8BC34A);
+            color: white;
+        }
+
+        .btn-start:hover {
+            transform: translateY(-3px);
+            box-shadow: 0 6px 20px rgba(76, 175, 80, 0.4);
+        }
+
+        #gameHUD {
+            position: absolute;
+            top: 10px;
+            left: 10px;
+            right: 10px;
+            display: none;
+            justify-content: space-between;
+            pointer-events: none;
+            z-index: 20;
+        }
+
+        .hud-panel {
+            background: rgba(0, 0, 0, 0.7);
+            border: 2px solid #8B4513;
+            border-radius: 10px;
+            padding: 10px 15px;
+            color: white;
+            font-weight: bold;
+        }
+
+        .sun-count {
+            color: #FFD700;
+            font-size: 20px;
+        }
+
+        .wave-info {
+            color: #FF6B6B;
+            font-size: 16px;
+        }
+
+        #plantSelector {
+            position: absolute;
+            top: 10px;
+            left: 50%;
+            transform: translateX(-50%);
+            display: none;
+            gap: 10px;
+            pointer-events: all;
+            z-index: 30;
+        }
+
+        .plant-card {
+            width: 80px;
+            height: 100px;
+            background: rgba(0, 0, 0, 0.8);
+            border: 3px solid #8B4513;
+            border-radius: 10px;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            cursor: pointer;
+            transition: all 0.3s;
+            position: relative;
+        }
+
+        .plant-card:hover {
+            transform: translateY(-5px);
+            border-color: #FFD700;
+        }
+
+        .plant-card.selected {
+            border-color: #4CAF50;
+            box-shadow: 0 0 15px rgba(76, 175, 80, 0.6);
+        }
+
+        .plant-icon {
+            margin-bottom: 5px;
+            min-height: 38px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+
+        .plant-badge {
+            --badge-main: #63C74D;
+            --badge-dark: #1F6D35;
+            --badge-accent: #FFD166;
+            width: 38px;
+            height: 38px;
+            display: inline-block;
+            position: relative;
+            border-radius: 50%;
+            background: radial-gradient(circle at 35% 30%, rgba(255,255,255,0.35), transparent 28%), var(--badge-main);
+            border: 3px solid var(--badge-dark);
+            box-shadow: inset 0 -5px 0 rgba(0,0,0,0.16), 0 3px 0 rgba(0,0,0,0.18);
+        }
+
+        .plant-badge::before {
+            content: '';
+            position: absolute;
+            width: 18px;
+            height: 11px;
+            right: -9px;
+            top: 13px;
+            border-radius: 50%;
+            background: var(--badge-dark);
+            border: 2px solid rgba(0,0,0,0.22);
+        }
+
+        .plant-badge::after {
+            content: attr(data-label);
+            position: absolute;
+            left: 50%;
+            bottom: -8px;
+            transform: translateX(-50%);
+            min-width: 22px;
+            padding: 1px 4px;
+            border-radius: 6px;
+            background: rgba(16, 24, 16, 0.82);
+            color: white;
+            font-size: 9px;
+            font-weight: 900;
+            line-height: 1;
+            letter-spacing: 0;
+        }
+
+        .plant-lock {
+            width: 34px;
+            height: 34px;
+            border-radius: 8px;
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            background: #2d2d2d;
+            border: 2px solid #777;
+            color: #ddd;
+            font-size: 10px;
+            font-weight: 900;
+        }
+
+        .plant-badge-sunflower { --badge-main: #FFD95A; --badge-dark: #8B5E22; --badge-accent: #6BBF59; }
+        .plant-badge-wallnut, .plant-badge-tallnut, .plant-badge-peanut { --badge-main: #C58A4A; --badge-dark: #6F4827; }
+        .plant-badge-freezer, .plant-badge-iceshroom, .plant-badge-iceberg { --badge-main: #80E5F5; --badge-dark: #1889A6; }
+        .plant-badge-potato, .plant-badge-coconut { --badge-main: #A06A3A; --badge-dark: #4A2B18; }
+        .plant-badge-cherry, .plant-badge-jalapeno { --badge-main: #E63946; --badge-dark: #8C1D2A; }
+        .plant-badge-chomper, .plant-badge-hypnoshroom, .plant-badge-gravebuster { --badge-main: #9B5DE5; --badge-dark: #4A1D70; }
+        .plant-badge-sunshroom, .plant-badge-puffshroom, .plant-badge-fumeshroom, .plant-badge-doomshroom { --badge-main: #B9855A; --badge-dark: #4A2B18; }
+        .plant-badge-fumeshroom { --badge-main: #8F5AD7; --badge-dark: #44216D; }
+        .plant-badge-doomshroom { --badge-main: #353B45; --badge-dark: #12161C; }
+        .plant-badge-imitater { --badge-main: #BFA8FF; --badge-dark: #5B4B8A; }
+        .plant-badge-squash { --badge-main: #F4A261; --badge-dark: #9C5B1C; }
+        .plant-badge-lily { --badge-main: #69B96E; --badge-dark: #1F6D35; }
+        .plant-badge-torchwood, .plant-badge-firepeashooter { --badge-main: #F15A24; --badge-dark: #7F1D1D; }
+        .plant-badge-bonkchoy { --badge-main: #B7E77A; --badge-dark: #478A3B; }
+        .plant-badge-bloomerang { --badge-main: #FF8FAB; --badge-dark: #C94376; }
+        .plant-badge-cactus, .plant-badge-spikeweed, .plant-badge-spikerock { --badge-main: #2E8B57; --badge-dark: #145A32; }
+        .plant-badge-spikerock { --badge-main: #7A7F88; --badge-dark: #333842; }
+        .plant-badge-acidlemon { --badge-main: #F7D84A; --badge-dark: #6B8E23; }
+        .plant-badge-peapod { --badge-main: #8DE05E; --badge-dark: #2A6B2E; }
+
+        .plant-cost {
+            color: #FFD700;
+            font-size: 14px;
+            font-weight: bold;
+        }
+
+        .plant-cooldown {
+            position: absolute;
+            inset: 0;
+            background: rgba(0, 0, 0, 0.7);
+            border-radius: 7px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            color: white;
+            font-size: 18px;
+            font-weight: bold;
+        }
+        
+        .plant-card.locked {
+            opacity: 0.6;
+            cursor: not-allowed;
+            border-color: #666;
+        }
+        
+        .plant-card.locked:hover {
+            transform: none;
+            border-color: #666;
+            box-shadow: none;
+        }
+        
+        .lock-text {
+            position: absolute;
+            bottom: 5px;
+            font-size: 10px;
+            color: #ff6b6b;
+            font-weight: bold;
+            text-align: center;
+            width: 100%;
+        }
+
+        #gameOverlay {
+            position: absolute;
+            inset: 0;
+            background: rgba(0, 0, 0, 0.8);
+            display: none;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            z-index: 200;
+            pointer-events: all;
+        }
+
+        .overlay-title {
+            font-family: 'Arial Black', sans-serif;
+            font-size: 48px;
+            margin-bottom: 20px;
+            text-shadow: 2px 2px 4px rgba(0, 0, 0, 0.8);
+        }
+
+        .win-title {
+            color: #4CAF50;
+        }
+
+        .lose-title {
+            color: #FF6B6B;
+        }
+
+        .overlay-sub {
+            color: white;
+            font-size: 20px;
+            margin-bottom: 30px;
+        }
+
+        #gameOverBtn {
+            background: linear-gradient(135deg, #FF6B6B, #FF8E53);
+            color: white;
+            border: none;
+            border-radius: 25px;
+            padding: 15px 30px;
+            font-family: 'Arial Black', sans-serif;
+            font-size: 18px;
+            cursor: pointer;
+            transition: all 0.3s;
+        }
+
+        #gameOverBtn:hover {
+            transform: scale(1.05);
+        }
+        
+        /* Level Selector Styles */
+        #levelSelect {
+            position: absolute;
+            inset: 0;
+            background: linear-gradient(135deg, #1a3009 0%, #0d1804 100%);
+            display: none;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            z-index: 100;
+            pointer-events: all;
+        }
+        
+        .level-title {
+            font-family: 'Arial Black', sans-serif;
+            font-size: 36px;
+            color: #FFD700;
+            margin-bottom: 30px;
+            text-shadow: 2px 2px 4px rgba(0, 0, 0, 0.7);
+        }
+        
+        .level-grid {
+            display: grid;
+            grid-template-columns: repeat(8, 1fr);
+            gap: 10px;
+            margin-bottom: 30px;
+        }
+        
+        .level-card {
+            width: 110px;
+            height: 140px;
+            background: linear-gradient(135deg, #2d5016 0%, #1a3009 100%);
+            border: 2px solid #8B4513;
+            border-radius: 10px;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            cursor: pointer;
+            transition: all 0.3s;
+            position: relative;
+            overflow: hidden;
+        }
+        
+        .level-card:hover {
+            transform: translateY(-5px);
+            border-color: #FFD700;
+            box-shadow: 0 8px 25px rgba(255, 215, 0, 0.3);
+        }
+        
+        .level-card.keyboard-selected {
+            transform: translateY(-5px);
+            border-color: #FFD700;
+            box-shadow: 0 8px 25px rgba(255, 215, 0, 0.6);
+            border: 3px solid #FFD700;
+        }
+        
+        .level-card.locked {
+            opacity: 0.6;
+            cursor: not-allowed;
+            border-color: #666;
+        }
+        
+        .level-card.locked:hover {
+            transform: none;
+            border-color: #666;
+            box-shadow: none;
+        }
+        
+        .level-number {
+            font-family: 'Arial Black', sans-serif;
+            font-size: 48px;
+            color: #FFD700;
+            margin-bottom: 10px;
+        }
+        
+        .level-name {
+            font-size: 16px;
+            color: white;
+            text-align: center;
+            margin-bottom: 10px;
+            font-weight: bold;
+        }
+        
+        .level-info {
+            font-size: 12px;
+            color: #aaa;
+            text-align: center;
+            line-height: 1.4;
+        }
+        
+        .lock-icon {
+            position: absolute;
+            top: 10px;
+            right: 10px;
+            font-size: 24px;
+            color: #666;
+        }
+        
+        .btn-back {
+            background: linear-gradient(135deg, #666, #888);
+            color: white;
+            border: none;
+            border-radius: 25px;
+            padding: 12px 25px;
+            font-family: 'Arial Black', sans-serif;
+            font-size: 16px;
+            cursor: pointer;
+            transition: all 0.3s;
+            box-shadow: 0 4px 15px rgba(0, 0, 0, 0.3);
+        }
+        
+        .btn-back:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 6px 20px rgba(0, 0, 0, 0.4);
+        }
+        
+        .btn-next-level {
+            background: linear-gradient(135deg, #4CAF50, #8BC34A);
+            color: white;
+            border: none;
+            border-radius: 25px;
+            padding: 12px 25px;
+            font-family: 'Arial Black', sans-serif;
+            font-size: 16px;
+            cursor: pointer;
+            transition: all 0.3s;
+            box-shadow: 0 4px 15px rgba(76, 175, 80, 0.3);
+            margin-right: 10px;
+        }
+        
+        .btn-next-level:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 6px 20px rgba(76, 175, 80, 0.4);
+        }
+        
+        .level-info-panel {
+            background: rgba(0, 0, 0, 0.7);
+            border: 2px solid #8B4513;
+            border-radius: 10px;
+            padding: 10px 15px;
+            color: white;
+            font-weight: bold;
+            font-size: 14px;
+            margin-bottom: 10px;
+        }
+        
+        /* Plant Selection Screen Styles */
+        .plant-selection-screen {
+            position: absolute;
+            inset: 0;
+            background: linear-gradient(135deg, #1a3009 0%, #0d1804 100%);
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            z-index: 100;
+            pointer-events: all;
+        }
+        
+        .plant-selection-title {
+            font-family: 'Arial Black', sans-serif;
+            font-size: 36px;
+            color: #FFD700;
+            margin-bottom: 30px;
+            text-shadow: 2px 2px 4px rgba(0, 0, 0, 0.7);
+        }
+        
+        .plant-selection-grid {
+            display: grid;
+            grid-template-columns: repeat(5, 1fr);
+            gap: 10px;
+            margin-bottom: 30px;
+            max-width: 1200px;
+            max-height: 400px;
+            overflow-y: auto;
+            overflow-x: hidden;
+            padding: 10px;
+            border: 2px solid #8B4513;
+            border-radius: 10px;
+            background: rgba(0, 0, 0, 0.3);
+        }
+        
+        .plant-selection-grid::-webkit-scrollbar {
+            width: 12px;
+        }
+        
+        .plant-selection-grid::-webkit-scrollbar-track {
+            background: rgba(139, 69, 19, 0.3);
+            border-radius: 6px;
+        }
+        
+        .plant-selection-grid::-webkit-scrollbar-thumb {
+            background: #8B4513;
+            border-radius: 6px;
+        }
+        
+        .plant-selection-grid::-webkit-scrollbar-thumb:hover {
+            background: #A0522D;
+        }
+        
+        .plant-selection-card {
+            width: 120px;
+            height: 140px;
+            background: linear-gradient(135deg, #2d5016 0%, #1a3009 100%);
+            border: 2px solid #8B4513;
+            border-radius: 10px;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            cursor: pointer;
+            transition: all 0.3s;
+            position: relative;
+            overflow: hidden;
+            padding: 8px;
+        }
+        
+        .plant-selection-card:hover:not(.locked) {
+            transform: translateY(-5px);
+            border-color: #FFD700;
+            box-shadow: 0 8px 25px rgba(255, 215, 0, 0.3);
+        }
+        
+        .plant-selection-card.keyboard-selected:not(.locked) {
+            transform: translateY(-5px);
+            border-color: #FFD700;
+            box-shadow: 0 8px 25px rgba(255, 215, 0, 0.6);
+            border: 3px solid #FFD700;
+        }
+        
+        .plant-selection-card.locked {
+            opacity: 0.6;
+            cursor: not-allowed;
+            border-color: #666;
+        }
+        
+        .plant-selection-card.locked:hover {
+            transform: none;
+            border-color: #666;
+            box-shadow: none;
+        }
+        
+        .plant-selection-card.selected {
+            border-color: #4CAF50;
+            box-shadow: 0 0 20px rgba(76, 175, 80, 0.6);
+            background: linear-gradient(135deg, #3e5f1a 0%, #2a4015 100%);
+        }
+        
+        .plant-selection-card .plant-icon {
+            margin-bottom: 6px;
+        }
+        
+        .plant-selection-card .plant-name {
+            font-size: 12px;
+            color: white;
+            font-weight: bold;
+            margin-bottom: 3px;
+            text-align: center;
+        }
+        
+        .plant-selection-card .plant-cost {
+            font-size: 10px;
+            color: #FFD700;
+            margin-bottom: 3px;
+        }
+        
+        .plant-selection-card .plant-desc {
+            font-size: 8px;
+            color: #aaa;
+            text-align: center;
+            line-height: 1.2;
+        }
+        
+        .lock-requirement {
+            position: absolute;
+            bottom: 5px;
+            font-size: 9px;
+            color: #ff6b6b;
+            font-weight: bold;
+            text-align: center;
+            width: 100%;
+        }
+        
+        .plant-selection-info {
+            background: rgba(0, 0, 0, 0.7);
+            border: 2px solid #8B4513;
+            border-radius: 15px;
+            padding: 20px;
+            text-align: center;
+        }
+        
+        .selected-count {
+            color: #FFD700;
+            font-size: 18px;
+            font-weight: bold;
+            margin-bottom: 15px;
+        }
+        
+        .selection-buttons {
+            display: flex;
+            gap: 15px;
+            justify-content: center;
+        }
+    </style>
+</head>
+<body>
+    <div id="gameContainer">
+        <canvas id="gameCanvas" width="1000" height="600"></canvas>
+        <div id="ui">
+            <!-- Game Menu -->
+            <div id="gameMenu">
+                <div class="game-title">🌻 PLANTS VS ZOMBIES 🧟</div>
+                <button class="menu-btn btn-start" onclick="showLevelSelect()">🌱 START GAME</button>
+            </div>
+
+            <!-- Level Selector -->
+            <div id="levelSelect">
+                <div class="level-title">🌻 SELECT LEVEL 🌻</div>
+                <div class="level-grid">
+                    <div class="level-card" onclick="startGame(1)">
+                        <div class="level-number">1</div>
+                        <div class="level-name">Day 1</div>
+                        <div class="level-info">Front Lawn<br>11 Kills<br>Normal Zombies</div>
+                    </div>
+                    <div class="level-card locked" id="level2">
+                        <div class="level-number">2</div>
+                        <div class="level-name">Day 2</div>
+                        <div class="level-info">More Zombies<br>14 Kills<br>Cone Zombies</div>
+                        <div class="lock-icon">🔒</div>
+                    </div>
+                    <div class="level-card locked" id="level3">
+                        <div class="level-number">3</div>
+                        <div class="level-name">Day 3</div>
+                        <div class="level-info">Cone Attack<br>18 Kills<br>More Enemies</div>
+                        <div class="lock-icon">🔒</div>
+                    </div>
+                    <div class="level-card locked" id="level4">
+                        <div class="level-number">4</div>
+                        <div class="level-name">Day 4</div>
+                        <div class="level-info">Bucket Brigade<br>21 Kills<br>Bucket Zombies</div>
+                        <div class="lock-icon">🔒</div>
+                    </div>
+                    <div class="level-card locked" id="level5">
+                        <div class="level-number">5</div>
+                        <div class="level-name">Day 5</div>
+                        <div class="level-info">Final Assault<br>24 Kills<br>All Zombies</div>
+                        <div class="lock-icon">🔒</div>
+                    </div>
+                    <div class="level-card locked" id="level6">
+                        <div class="level-number">6</div>
+                        <div class="level-name">Day 6</div>
+                        <div class="level-info">Explosive Mayhem<br>27 Kills<br>Cherry Bombs</div>
+                        <div class="lock-icon">🔒</div>
+                    </div>
+                    <div class="level-card locked" id="level7">
+                        <div class="level-number">7</div>
+                        <div class="level-name">Day 7</div>
+                        <div class="level-info">Devouring Defense<br>30 Kills<br>Chompers</div>
+                        <div class="lock-icon">🔒</div>
+                    </div>
+                    <div class="level-card locked" id="level8">
+                        <div class="level-number">8</div>
+                        <div class="level-name">Day 8</div>
+                        <div class="level-info">Ultimate Battle<br>34 Kills<br>All Plants</div>
+                        <div class="lock-icon">🔒</div>
+                    </div>
+                    <div class="level-card locked" id="level9">
+                        <div class="level-number">9</div>
+                        <div class="level-name">Night 1</div>
+                        <div class="level-info">Shroom Awakening<br>37 Kills<br>Sun-shrooms</div>
+                        <div class="lock-icon">🔒</div>
+                    </div>
+                    <div class="level-card locked" id="level10">
+                        <div class="level-number">10</div>
+                        <div class="level-name">Night 2</div>
+                        <div class="level-info">Fume Cloud<br>40 Kills<br>Puff-shrooms</div>
+                        <div class="lock-icon">🔒</div>
+                    </div>
+                    <div class="level-card locked" id="level11">
+                        <div class="level-number">11</div>
+                        <div class="level-name">Night 3</div>
+                        <div class="level-info">Icy Terror<br>43 Kills<br>Fume-shrooms</div>
+                        <div class="lock-icon">🔒</div>
+                    </div>
+                    <div class="level-card locked" id="level12">
+                        <div class="level-number">12</div>
+                        <div class="level-name">Night 4</div>
+                        <div class="level-info">Doom Arrival<br>46 Kills<br>Doom-shrooms</div>
+                        <div class="lock-icon">🔒</div>
+                    </div>
+                    <div class="level-card locked" id="level13">
+                        <div class="level-number">13</div>
+                        <div class="level-name">Night 5</div>
+                        <div class="level-info">Shroom Storm<br>50 Kills<br>Ice-shrooms</div>
+                        <div class="lock-icon">🔒</div>
+                    </div>
+                    <div class="level-card locked" id="level14">
+                        <div class="level-number">14</div>
+                        <div class="level-name">Night 6</div>
+                        <div class="level-info">Fume Apocalypse<br>53 Kills<br>Hypno-shrooms</div>
+                        <div class="lock-icon">🔒</div>
+                    </div>
+                    <div class="level-card locked" id="level15">
+                        <div class="level-number">15</div>
+                        <div class="level-name">Night 7</div>
+                        <div class="level-info">Ice Age<br>56 Kills<br>All Shrooms</div>
+                        <div class="lock-icon">🔒</div>
+                    </div>
+                    <div class="level-card locked" id="level16">
+                        <div class="level-number">16</div>
+                        <div class="level-name">Night 8</div>
+                        <div class="level-info">Final Stand<br>59 Kills<br>All Shrooms</div>
+                        <div class="lock-icon">🔒</div>
+                    </div>
+                    <div class="level-card locked" id="level17">
+                        <div class="level-number">17</div>
+                        <div class="level-name">Day 9</div>
+                        <div class="level-info">Nut Defense<br>62 Kills<br>Tall-nut</div>
+                        <div class="lock-icon">🔒</div>
+                    </div>
+                    <div class="level-card locked" id="level18">
+                        <div class="level-number">18</div>
+                        <div class="level-name">Day 10</div>
+                        <div class="level-info">Classic Mix<br>66 Kills<br>Imitater</div>
+                        <div class="lock-icon">🔒</div>
+                    </div>
+                    <div class="level-card locked" id="level19">
+                        <div class="level-number">19</div>
+                        <div class="level-name">Pool 1</div>
+                        <div class="level-info">Water Front<br>69 Kills<br>Lily Pad</div>
+                        <div class="lock-icon">🔒</div>
+                    </div>
+                    <div class="level-card locked" id="level20">
+                        <div class="level-number">20</div>
+                        <div class="level-name">Pool 2</div>
+                        <div class="level-info">Deep Waters<br>72 Kills<br>Threepeater</div>
+                        <div class="lock-icon">🔒</div>
+                    </div>
+                    <div class="level-card locked" id="level21">
+                        <div class="level-number">21</div>
+                        <div class="level-name">Pool 3</div>
+                        <div class="level-info">Lily Defense<br>75 Kills<br>Squash</div>
+                        <div class="lock-icon">🔒</div>
+                    </div>
+                    <div class="level-card locked" id="level22">
+                        <div class="level-number">22</div>
+                        <div class="level-name">Pool 4</div>
+                        <div class="level-info">Triple Threat<br>78 Kills<br>Jalapeno</div>
+                        <div class="lock-icon">🔒</div>
+                    </div>
+                    <div class="level-card locked" id="level23">
+                        <div class="level-number">23</div>
+                        <div class="level-name">Pool 5</div>
+                        <div class="level-info">Squash Attack<br>82 Kills<br>All Pool</div>
+                        <div class="lock-icon">🔒</div>
+                    </div>
+                    <div class="level-card locked" id="level24">
+                        <div class="level-number">24</div>
+                        <div class="level-name">Pool 6</div>
+                        <div class="level-info">Hot Waters<br>85 Kills<br>All Pool</div>
+                        <div class="lock-icon">🔒</div>
+                    </div>
+                    <div class="level-card locked" id="level25">
+                        <div class="level-number">25</div>
+                        <div class="level-name">Pool 7</div>
+                        <div class="level-info">Ultimate Pool<br>88 Kills<br>All Pool</div>
+                        <div class="lock-icon">🔒</div>
+                    </div>
+                    <div class="level-card locked" id="level26">
+                        <div class="level-number">26</div>
+                        <div class="level-name">Pool 8</div>
+                        <div class="level-info">Final Waters<br>91 Kills<br>All Pool</div>
+                        <div class="lock-icon">🔒</div>
+                    </div>
+                    <div class="level-card locked" id="level27">
+                        <div class="level-number">27</div>
+                        <div class="level-name">Ultimate 1</div>
+                        <div class="level-info">Fire Power<br>94 Kills<br>Torchwood</div>
+                        <div class="lock-icon">🔒</div>
+                    </div>
+                    <div class="level-card locked" id="level28">
+                        <div class="level-number">28</div>
+                        <div class="level-name">Ultimate 2</div>
+                        <div class="level-info">Martial Arts<br>98 Kills<br>Fire Pea</div>
+                        <div class="lock-icon">🔒</div>
+                    </div>
+                    <div class="level-card locked" id="level29">
+                        <div class="level-number">29</div>
+                        <div class="level-name">Ultimate 3</div>
+                        <div class="level-info">Boomerang Fury<br>101 Kills<br>Bonk Choy</div>
+                        <div class="lock-icon">🔒</div>
+                    </div>
+                    <div class="level-card locked" id="level30">
+                        <div class="level-number">30</div>
+                        <div class="level-name">Ultimate 4</div>
+                        <div class="level-info">Combined Forces<br>104 Kills<br>Bloomerang</div>
+                        <div class="lock-icon">🔒</div>
+                    </div>
+                    <div class="level-card locked" id="level31">
+                        <div class="level-number">31</div>
+                        <div class="level-name">Ultimate 5</div>
+                        <div class="level-info">Final Challenge<br>107 Kills<br>All Ultimate</div>
+                        <div class="lock-icon">🔒</div>
+                    </div>
+                    <div class="level-card locked" id="level32">
+                        <div class="level-number">32</div>
+                        <div class="level-name">Ultimate 6</div>
+                        <div class="level-info">Master Level<br>110 Kills<br>All Ultimate</div>
+                        <div class="lock-icon">🔒</div>
+                    </div>
+                    <div class="level-card locked" id="level33">
+                        <div class="level-number">33</div>
+                        <div class="level-name">Ultimate 7</div>
+                        <div class="level-info">Newspaper Rush<br>114 Kills<br>Classic Horde</div>
+                        <div class="lock-icon">🔒</div>
+                    </div>
+                    <div class="level-card locked" id="level34">
+                        <div class="level-number">34</div>
+                        <div class="level-name">Ultimate 8</div>
+                        <div class="level-info">Pole Vault Panic<br>117 Kills<br>Classic Horde</div>
+                        <div class="lock-icon">🔒</div>
+                    </div>
+                    <div class="level-card locked" id="level35">
+                        <div class="level-number">35</div>
+                        <div class="level-name">Ultimate 9</div>
+                        <div class="level-info">Dance Floor<br>120 Kills<br>Classic Horde</div>
+                        <div class="lock-icon">🔒</div>
+                    </div>
+                    <div class="level-card locked" id="level36">
+                        <div class="level-number">36</div>
+                        <div class="level-name">Ultimate 10</div>
+                        <div class="level-info">Classic Horde<br>123 Kills<br>All Zombies</div>
+                        <div class="lock-icon">🔒</div>
+                    </div>
+                    <div class="level-card locked" id="level37">
+                        <div class="level-number">37</div>
+                        <div class="level-name">Graveyard 1</div>
+                        <div class="level-info">Restless Soil<br>105 Kills<br>Graves</div>
+                        <div class="lock-icon">🔒</div>
+                    </div>
+                    <div class="level-card locked" id="level38">
+                        <div class="level-number">38</div>
+                        <div class="level-name">Graveyard 2</div>
+                        <div class="level-info">Tomb Trouble<br>115 Kills<br>More Graves</div>
+                        <div class="lock-icon">🔒</div>
+                    </div>
+                    <div class="level-card locked" id="level39">
+                        <div class="level-number">39</div>
+                        <div class="level-name">Final</div>
+                        <div class="level-info">Peanut Stand<br>125 Kills<br>Peanut</div>
+                        <div class="lock-icon">🔒</div>
+                    </div>
+                </div>
+                <button class="btn-back" onclick="backToMenu()">← BACK TO MENU</button>
+            </div>
+
+            <!-- Game HUD -->
+            <div id="gameHUD">
+                <div class="hud-panel">
+                    <div class="sun-count">☀️ <span id="sunCount">50</span></div>
+                    <div class="level-info-panel" id="levelName">Day 1 - Front Lawn</div>
+                </div>
+                <div class="hud-panel">
+                    <div class="wave-info">Kills: <span id="waveCount">0/10</span></div>
+                </div>
+            </div>
+
+            <!-- Plant Selector -->
+            <div id="plantSelector">
+                <!-- Plant cards will be dynamically generated -->
+            </div>
+
+            <!-- Game Overlay for Win/Lose -->
+            <div id="gameOverlay">
+                <div class="overlay-title" id="overlayTitle"></div>
+                <div class="overlay-sub" id="overlaySub"></div>
+                <div id="overlayButtons">
+                    <button class="btn-next-level" id="nextLevelBtn" onclick="nextLevel()" style="display: none;">NEXT LEVEL →</button>
+                    <button id="gameOverBtn" onclick="backToMenu()">BACK TO MENU</button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+        
+    <script>
+        // Keyboard navigation system
+        let currentMenuIndex = 0;
+        let currentLevelIndex = 0;
+        let currentPlantIndex = 0;
+        let menuItems = [];
+        let levelItems = [];
+        let plantItems = [];
+        
+        // Initialize keyboard navigation
+        document.addEventListener('DOMContentLoaded', function() {
+            setupKeyboardNavigation();
+        });
+        
+        function setupKeyboardNavigation() {
+            document.addEventListener('keydown', handleKeyPress);
+        }
+        
+        function handleKeyPress(event) {
+            const key = event.key;
+            const activeMenu = getActiveMenu();
+            
+            // Handle S key for level skipping (works in any menu)
+            if (key === 's' || key === 'S') {
+                event.preventDefault();
+                skipCurrentLevel();
+                return;
+            }
+            
+            switch(activeMenu) {
+                case 'main':
+                    handleMainMenuNavigation(key);
+                    break;
+                case 'levelSelect':
+                    handleLevelSelectNavigation(key);
+                    break;
+                case 'plantSelect':
+                    handlePlantSelectNavigation(key);
+                    break;
+            }
+        }
+        
+        function getActiveMenu() {
+            const gameMenu = document.getElementById('gameMenu');
+            const levelSelect = document.getElementById('levelSelect');
+            const plantSelect = document.getElementById('plantSelector');
+            
+            if (gameMenu && gameMenu.style.display !== 'none') return 'main';
+            if (levelSelect && levelSelect.style.display !== 'none') return 'levelSelect';
+            if (plantSelect && plantSelect.style.display !== 'none') return 'plantSelect';
+            return null;
+        }
+        
+        function handleMainMenuNavigation(key) {
+            const buttons = document.querySelectorAll('#gameMenu .menu-btn');
+            if (buttons.length === 0) return;
+            
+            // Remove previous selection
+            buttons.forEach(btn => btn.classList.remove('keyboard-selected'));
+            
+            switch(key) {
+                case 'ArrowUp':
+                    event.preventDefault();
+                    currentMenuIndex = (currentMenuIndex - 1 + buttons.length) % buttons.length;
+                    break;
+                case 'ArrowDown':
+                    event.preventDefault();
+                    currentMenuIndex = (currentMenuIndex + 1) % buttons.length;
+                    break;
+                case 'Enter':
+                case ' ':
+                    event.preventDefault();
+                    buttons[currentMenuIndex].click();
+                    return;
+            }
+            
+            // Add selection to current button
+            buttons[currentMenuIndex].classList.add('keyboard-selected');
+        }
+        
+        function handleLevelSelectNavigation(key) {
+            const levelCards = document.querySelectorAll('.level-card:not(.locked)');
+            if (levelCards.length === 0) return;
+            
+            // Remove previous selection
+            levelCards.forEach(card => card.classList.remove('keyboard-selected'));
+            
+            switch(key) {
+                case 'ArrowUp':
+                    event.preventDefault();
+                    currentLevelIndex = Math.max(0, currentLevelIndex - 6);
+                    break;
+                case 'ArrowDown':
+                    event.preventDefault();
+                    currentLevelIndex = Math.min(levelCards.length - 1, currentLevelIndex + 6);
+                    break;
+                case 'ArrowLeft':
+                    event.preventDefault();
+                    currentLevelIndex = Math.max(0, currentLevelIndex - 1);
+                    break;
+                case 'ArrowRight':
+                    event.preventDefault();
+                    currentLevelIndex = Math.min(levelCards.length - 1, currentLevelIndex + 1);
+                    break;
+                case 'Enter':
+                case ' ':
+                    event.preventDefault();
+                    levelCards[currentLevelIndex].click();
+                    return;
+            }
+            
+            // Add selection to current level
+            levelCards[currentLevelIndex].classList.add('keyboard-selected');
+        }
+        
+        function handlePlantSelectNavigation(key) {
+            const plantCards = document.querySelectorAll('.plant-selection-card');
+            if (plantCards.length === 0) return;
+            
+            // Remove previous selection
+            plantCards.forEach(card => card.classList.remove('keyboard-selected'));
+            
+            switch(key) {
+                case 'ArrowUp':
+                    event.preventDefault();
+                    currentPlantIndex = Math.max(0, currentPlantIndex - 5);
+                    break;
+                case 'ArrowDown':
+                    event.preventDefault();
+                    currentPlantIndex = Math.min(plantCards.length - 1, currentPlantIndex + 5);
+                    break;
+                case 'ArrowLeft':
+                    event.preventDefault();
+                    currentPlantIndex = Math.max(0, currentPlantIndex - 1);
+                    break;
+                case 'ArrowRight':
+                    event.preventDefault();
+                    currentPlantIndex = Math.min(plantCards.length - 1, currentPlantIndex + 1);
+                    break;
+                case 'Enter':
+                case ' ':
+                    event.preventDefault();
+                    plantCards[currentPlantIndex].click();
+                    return;
+                case 'Escape':
+                    event.preventDefault();
+                    // Go back to level select
+                    if (typeof backToLevelSelect === 'function') {
+                        backToLevelSelect();
+                    }
+                    return;
+            }
+            
+            // Add selection to current plant
+            plantCards[currentPlantIndex].classList.add('keyboard-selected');
+            
+            // Smooth scroll to selected plant if it's not visible
+            scrollToPlant(plantCards[currentPlantIndex]);
+        }
+        
+        function scrollToPlant(plantCard) {
+            if (!plantCard) return;
+            
+            const plantSelector = document.getElementById('plantSelector');
+            const plantGrid = document.querySelector('.plant-selection-grid');
+            
+            if (!plantGrid) return;
+            
+            // Get the position of the selected plant relative to the grid
+            const gridRect = plantGrid.getBoundingClientRect();
+            const plantRect = plantCard.getBoundingClientRect();
+            
+            // Calculate if the plant is outside the visible area
+            const isVisible = plantRect.top >= gridRect.top && 
+                             plantRect.bottom <= gridRect.bottom &&
+                             plantRect.left >= gridRect.left && 
+                             plantRect.right <= gridRect.right;
+            
+            if (!isVisible) {
+                // Scroll the plant into view
+                plantCard.scrollIntoView({
+                    behavior: 'smooth',
+                    block: 'nearest',
+                    inline: 'nearest'
+                });
+            }
+        }
+        
+        // Reset indices when switching menus
+        function resetKeyboardNavigation() {
+            currentMenuIndex = 0;
+            currentLevelIndex = 0;
+            currentPlantIndex = 0;
+        }
+        
+        // Menu functions for navigation
+        function showLevelSelect() {
+            document.getElementById('gameMenu').style.display = 'none';
+            document.getElementById('levelSelect').style.display = 'block';
+            resetKeyboardNavigation();
+        }
+        
+        function backToMenu() {
+            document.getElementById('gameMenu').style.display = 'block';
+            document.getElementById('levelSelect').style.display = 'none';
+            document.getElementById('plantSelector').style.display = 'none';
+            document.getElementById('gameOverlay').style.display = 'none';
+            resetKeyboardNavigation();
+        }
+        
+        function backToLevelSelect() {
+            document.getElementById('levelSelect').style.display = 'block';
+            document.getElementById('plantSelector').style.display = 'none';
+            resetKeyboardNavigation();
+        }
+        
+        function startGame(level) {
+            // Initialize game with selected level
+            if (typeof game !== 'undefined' && game.startLevel) {
+                game.startLevel(level);
+            }
+            document.getElementById('levelSelect').style.display = 'none';
+            resetKeyboardNavigation();
+        }
+        
+        function nextLevel() {
+            // Go to next level
+            if (typeof game !== 'undefined' && game.nextLevel) {
+                game.nextLevel();
+            }
+        }
+        
+        function skipCurrentLevel() {
+            // Skip current level and unlock the next one
+            if (typeof game !== 'undefined' && game.skipLevel) {
+                game.skipLevel();
+            } else {
+                // Fallback: Try to determine current level and unlock next one
+                const unlockedLevels = getUnlockedLevels();
+                if (unlockedLevels.length > 0) {
+                    const currentLevel = Math.max(...unlockedLevels);
+                    const nextLevel = currentLevel + 1;
+                    
+                    if (nextLevel <= 39) {
+                        unlockLevel(nextLevel);
+                        showSkipConfirmation(currentLevel, nextLevel);
+                    } else {
+                        showSkipMessage("You've already unlocked all levels!");
+                    }
+                } else {
+                    showSkipMessage("No levels unlocked yet. Complete Level 1 first!");
+                }
+            }
+        }
+        
+        function getUnlockedLevels() {
+            const progress = localStorage.getItem('pvz_progress');
+            if (progress) {
+                const parsed = JSON.parse(progress);
+                return parsed.unlockedLevels || [];
+            }
+            return [1]; // Level 1 is always unlocked by default
+        }
+        
+        function unlockLevel(levelNumber) {
+            const progress = localStorage.getItem('pvz_progress');
+            let parsed = progress ? JSON.parse(progress) : { unlockedLevels: [1] };
+            
+            if (!parsed.unlockedLevels.includes(levelNumber)) {
+                parsed.unlockedLevels.push(levelNumber);
+                parsed.unlockedLevels.sort((a, b) => a - b);
+                
+                // Get plants that should be unlocked at this level
+                const plantsToUnlock = getPlantsForLevel(levelNumber);
+                parsed.unlockedPlants = plantsToUnlock;
+                
+                localStorage.setItem('pvz_progress', JSON.stringify(parsed));
+                
+                // Update UI to show unlocked level
+                const levelCard = document.getElementById(`level${levelNumber}`);
+                if (levelCard) {
+                    levelCard.classList.remove('locked');
+                    const lockIcon = levelCard.querySelector('.lock-icon');
+                    if (lockIcon) {
+                        lockIcon.style.display = 'none';
+                    }
+                }
+                
+                // Update plant selector if game is available
+                if (typeof game !== 'undefined' && game.updatePlantSelector) {
+                    game.updatePlantSelector();
+                }
+            }
+        }
+        
+        function getPlantsForLevel(levelNumber) {
+            // Return the plants that should be available at the given level
+            const plantProgression = {
+                1: ['sunflower', 'peashooter', 'wallnut'],
+                2: ['sunflower', 'peashooter', 'wallnut', 'freezer'],
+                3: ['sunflower', 'peashooter', 'wallnut', 'freezer'],
+                4: ['sunflower', 'peashooter', 'wallnut', 'freezer', 'potato'],
+                5: ['sunflower', 'peashooter', 'wallnut', 'freezer', 'potato'],
+                6: ['sunflower', 'peashooter', 'wallnut', 'freezer', 'potato', 'cherry'],
+                7: ['sunflower', 'peashooter', 'wallnut', 'freezer', 'potato', 'cherry', 'chomper'],
+                8: ['sunflower', 'peashooter', 'wallnut', 'freezer', 'potato', 'cherry', 'chomper', 'bipeater'],
+                9: ['sunflower', 'peashooter', 'wallnut', 'freezer', 'potato', 'cherry', 'chomper', 'bipeater', 'sunshroom'],
+                10: ['sunflower', 'peashooter', 'wallnut', 'freezer', 'potato', 'cherry', 'chomper', 'bipeater', 'sunshroom', 'puffshroom'],
+                11: ['sunflower', 'peashooter', 'wallnut', 'freezer', 'potato', 'cherry', 'chomper', 'bipeater', 'sunshroom', 'puffshroom', 'fumeshroom'],
+                12: ['sunflower', 'peashooter', 'wallnut', 'freezer', 'potato', 'cherry', 'chomper', 'bipeater', 'sunshroom', 'puffshroom', 'fumeshroom', 'doomshroom', 'gravebuster'],
+                13: ['sunflower', 'peashooter', 'wallnut', 'freezer', 'potato', 'cherry', 'chomper', 'bipeater', 'sunshroom', 'puffshroom', 'fumeshroom', 'doomshroom', 'iceshroom', 'gravebuster'],
+                14: ['sunflower', 'peashooter', 'wallnut', 'freezer', 'potato', 'cherry', 'chomper', 'bipeater', 'sunshroom', 'puffshroom', 'fumeshroom', 'doomshroom', 'iceshroom', 'hypnoshroom', 'gravebuster'],
+                15: ['sunflower', 'peashooter', 'wallnut', 'freezer', 'potato', 'cherry', 'chomper', 'bipeater', 'sunshroom', 'puffshroom', 'fumeshroom', 'doomshroom', 'iceshroom', 'hypnoshroom', 'gravebuster', 'iceberg'],
+                16: ['sunflower', 'peashooter', 'wallnut', 'freezer', 'potato', 'cherry', 'chomper', 'bipeater', 'sunshroom', 'puffshroom', 'fumeshroom', 'doomshroom', 'iceshroom', 'hypnoshroom', 'gravebuster', 'iceberg'],
+                17: ['sunflower', 'peashooter', 'wallnut', 'freezer', 'potato', 'cherry', 'chomper', 'bipeater', 'sunshroom', 'puffshroom', 'fumeshroom', 'doomshroom', 'iceshroom', 'hypnoshroom', 'tallnut', 'gravebuster', 'iceberg'],
+                18: ['sunflower', 'peashooter', 'wallnut', 'freezer', 'potato', 'cherry', 'chomper', 'bipeater', 'sunshroom', 'puffshroom', 'fumeshroom', 'doomshroom', 'iceshroom', 'hypnoshroom', 'tallnut', 'imitater', 'gravebuster', 'iceberg'],
+                19: ['sunflower', 'peashooter', 'wallnut', 'freezer', 'potato', 'cherry', 'chomper', 'bipeater', 'sunshroom', 'puffshroom', 'fumeshroom', 'doomshroom', 'iceshroom', 'hypnoshroom', 'tallnut', 'imitater', 'lily', 'gravebuster', 'iceberg'],
+                20: ['sunflower', 'peashooter', 'wallnut', 'freezer', 'potato', 'cherry', 'chomper', 'bipeater', 'sunshroom', 'puffshroom', 'fumeshroom', 'doomshroom', 'iceshroom', 'hypnoshroom', 'tallnut', 'imitater', 'lily', 'threepeater', 'gravebuster', 'iceberg', 'peapod'],
+                21: ['sunflower', 'peashooter', 'wallnut', 'freezer', 'potato', 'cherry', 'chomper', 'bipeater', 'sunshroom', 'puffshroom', 'fumeshroom', 'doomshroom', 'iceshroom', 'hypnoshroom', 'tallnut', 'imitater', 'lily', 'threepeater', 'squash', 'gravebuster', 'iceberg', 'peapod'],
+                22: ['sunflower', 'peashooter', 'wallnut', 'freezer', 'potato', 'cherry', 'chomper', 'bipeater', 'sunshroom', 'puffshroom', 'fumeshroom', 'doomshroom', 'iceshroom', 'hypnoshroom', 'tallnut', 'imitater', 'lily', 'threepeater', 'squash', 'jalapeno', 'gravebuster', 'iceberg', 'peapod'],
+                23: ['sunflower', 'peashooter', 'wallnut', 'freezer', 'potato', 'cherry', 'chomper', 'bipeater', 'sunshroom', 'puffshroom', 'fumeshroom', 'doomshroom', 'iceshroom', 'hypnoshroom', 'tallnut', 'imitater', 'lily', 'threepeater', 'squash', 'jalapeno', 'gravebuster', 'iceberg', 'peapod'],
+                24: ['sunflower', 'peashooter', 'wallnut', 'freezer', 'potato', 'cherry', 'chomper', 'bipeater', 'sunshroom', 'puffshroom', 'fumeshroom', 'doomshroom', 'iceshroom', 'hypnoshroom', 'tallnut', 'imitater', 'lily', 'threepeater', 'squash', 'jalapeno', 'gravebuster', 'iceberg', 'peapod'],
+                25: ['sunflower', 'peashooter', 'wallnut', 'freezer', 'potato', 'cherry', 'chomper', 'bipeater', 'sunshroom', 'puffshroom', 'fumeshroom', 'doomshroom', 'iceshroom', 'hypnoshroom', 'tallnut', 'imitater', 'lily', 'threepeater', 'squash', 'jalapeno', 'gravebuster', 'iceberg', 'peapod', 'coconut'],
+                26: ['sunflower', 'peashooter', 'wallnut', 'freezer', 'potato', 'cherry', 'chomper', 'bipeater', 'sunshroom', 'puffshroom', 'fumeshroom', 'doomshroom', 'iceshroom', 'hypnoshroom', 'tallnut', 'imitater', 'lily', 'threepeater', 'squash', 'jalapeno', 'gravebuster', 'iceberg', 'peapod', 'coconut'],
+                27: ['sunflower', 'peashooter', 'wallnut', 'freezer', 'potato', 'cherry', 'chomper', 'bipeater', 'sunshroom', 'puffshroom', 'fumeshroom', 'doomshroom', 'iceshroom', 'hypnoshroom', 'tallnut', 'imitater', 'lily', 'threepeater', 'squash', 'jalapeno', 'torchwood', 'gravebuster', 'iceberg', 'peapod', 'coconut'],
+                28: ['sunflower', 'peashooter', 'wallnut', 'freezer', 'potato', 'cherry', 'chomper', 'bipeater', 'sunshroom', 'puffshroom', 'fumeshroom', 'doomshroom', 'iceshroom', 'hypnoshroom', 'tallnut', 'imitater', 'lily', 'threepeater', 'squash', 'jalapeno', 'torchwood', 'firepeashooter', 'gravebuster', 'iceberg', 'peapod', 'coconut'],
+                29: ['sunflower', 'peashooter', 'wallnut', 'freezer', 'potato', 'cherry', 'chomper', 'bipeater', 'sunshroom', 'puffshroom', 'fumeshroom', 'doomshroom', 'iceshroom', 'hypnoshroom', 'tallnut', 'imitater', 'lily', 'threepeater', 'squash', 'jalapeno', 'torchwood', 'firepeashooter', 'bonkchoy', 'gravebuster', 'iceberg', 'peapod', 'coconut'],
+                30: ['sunflower', 'peashooter', 'wallnut', 'freezer', 'potato', 'cherry', 'chomper', 'bipeater', 'sunshroom', 'puffshroom', 'fumeshroom', 'doomshroom', 'iceshroom', 'hypnoshroom', 'tallnut', 'imitater', 'lily', 'threepeater', 'squash', 'jalapeno', 'torchwood', 'firepeashooter', 'bonkchoy', 'bloomerang', 'gravebuster', 'iceberg', 'peapod', 'coconut'],
+                31: ['sunflower', 'peashooter', 'wallnut', 'freezer', 'potato', 'cherry', 'chomper', 'bipeater', 'sunshroom', 'puffshroom', 'fumeshroom', 'doomshroom', 'iceshroom', 'hypnoshroom', 'tallnut', 'imitater', 'lily', 'threepeater', 'squash', 'jalapeno', 'torchwood', 'firepeashooter', 'bonkchoy', 'bloomerang', 'cactus', 'gravebuster', 'iceberg', 'peapod', 'coconut'],
+                32: ['sunflower', 'peashooter', 'wallnut', 'freezer', 'potato', 'cherry', 'chomper', 'bipeater', 'sunshroom', 'puffshroom', 'fumeshroom', 'doomshroom', 'iceshroom', 'hypnoshroom', 'tallnut', 'imitater', 'lily', 'threepeater', 'squash', 'jalapeno', 'torchwood', 'firepeashooter', 'bonkchoy', 'bloomerang', 'cactus', 'spikeweed', 'gravebuster', 'iceberg', 'peapod', 'coconut'],
+                33: ['sunflower', 'peashooter', 'wallnut', 'freezer', 'potato', 'cherry', 'chomper', 'bipeater', 'sunshroom', 'puffshroom', 'fumeshroom', 'doomshroom', 'iceshroom', 'hypnoshroom', 'tallnut', 'imitater', 'lily', 'threepeater', 'squash', 'jalapeno', 'torchwood', 'firepeashooter', 'bonkchoy', 'bloomerang', 'cactus', 'spikeweed', 'spikerock', 'gravebuster', 'iceberg', 'peapod', 'coconut'],
+                34: ['sunflower', 'peashooter', 'wallnut', 'freezer', 'potato', 'cherry', 'chomper', 'bipeater', 'sunshroom', 'puffshroom', 'fumeshroom', 'doomshroom', 'iceshroom', 'hypnoshroom', 'tallnut', 'imitater', 'lily', 'threepeater', 'squash', 'jalapeno', 'torchwood', 'firepeashooter', 'bonkchoy', 'bloomerang', 'cactus', 'spikeweed', 'spikerock', 'acidlemon', 'gravebuster', 'iceberg', 'peapod', 'coconut'],
+                35: ['sunflower', 'peashooter', 'wallnut', 'freezer', 'potato', 'cherry', 'chomper', 'bipeater', 'sunshroom', 'puffshroom', 'fumeshroom', 'doomshroom', 'iceshroom', 'hypnoshroom', 'tallnut', 'imitater', 'lily', 'threepeater', 'squash', 'jalapeno', 'torchwood', 'firepeashooter', 'bonkchoy', 'bloomerang', 'cactus', 'spikeweed', 'spikerock', 'acidlemon', 'gravebuster', 'iceberg', 'peapod', 'coconut'],
+                36: ['sunflower', 'peashooter', 'wallnut', 'freezer', 'potato', 'cherry', 'chomper', 'bipeater', 'sunshroom', 'puffshroom', 'fumeshroom', 'doomshroom', 'iceshroom', 'hypnoshroom', 'tallnut', 'imitater', 'lily', 'threepeater', 'squash', 'jalapeno', 'torchwood', 'firepeashooter', 'bonkchoy', 'bloomerang', 'cactus', 'spikeweed', 'spikerock', 'acidlemon', 'gravebuster', 'iceberg', 'peapod', 'coconut'],
+                37: ['sunflower', 'peashooter', 'wallnut', 'freezer', 'potato', 'cherry', 'chomper', 'bipeater', 'sunshroom', 'puffshroom', 'fumeshroom', 'doomshroom', 'iceshroom', 'hypnoshroom', 'tallnut', 'imitater', 'lily', 'threepeater', 'squash', 'jalapeno', 'torchwood', 'firepeashooter', 'bonkchoy', 'bloomerang', 'cactus', 'spikeweed', 'spikerock', 'acidlemon', 'gravebuster', 'iceberg', 'peapod', 'coconut'],
+                38: ['sunflower', 'peashooter', 'wallnut', 'freezer', 'potato', 'cherry', 'chomper', 'bipeater', 'sunshroom', 'puffshroom', 'fumeshroom', 'doomshroom', 'iceshroom', 'hypnoshroom', 'tallnut', 'imitater', 'lily', 'threepeater', 'squash', 'jalapeno', 'torchwood', 'firepeashooter', 'bonkchoy', 'bloomerang', 'cactus', 'spikeweed', 'spikerock', 'acidlemon', 'gravebuster', 'iceberg', 'peapod', 'coconut'],
+                39: ['sunflower', 'peashooter', 'wallnut', 'freezer', 'potato', 'cherry', 'chomper', 'bipeater', 'sunshroom', 'puffshroom', 'fumeshroom', 'doomshroom', 'iceshroom', 'hypnoshroom', 'tallnut', 'imitater', 'lily', 'threepeater', 'squash', 'jalapeno', 'torchwood', 'firepeashooter', 'bonkchoy', 'bloomerang', 'cactus', 'spikeweed', 'spikerock', 'acidlemon', 'gravebuster', 'iceberg', 'peapod', 'coconut', 'peanut']
+            };
+            
+            return plantProgression[levelNumber] || plantProgression[1];
+        }
+        
+        function showSkipConfirmation(currentLevel, nextLevel) {
+            const message = `⚡ Level ${currentLevel} SKIPPED!\n🔓 Level ${nextLevel} UNLOCKED!\n\nPress S again to skip more levels.`;
+            showSkipMessage(message);
+        }
+        
+        function showSkipMessage(message) {
+            // Create a temporary overlay for the skip message
+            const overlay = document.createElement('div');
+            overlay.style.cssText = `
+                position: fixed;
+                top: 50%;
+                left: 50%;
+                transform: translate(-50%, -50%);
+                background: linear-gradient(135deg, #FFD700 0%, #FFA500 100%);
+                color: #000;
+                padding: 20px 30px;
+                border-radius: 15px;
+                font-size: 18px;
+                font-weight: bold;
+                text-align: center;
+                z-index: 10000;
+                box-shadow: 0 8px 25px rgba(0, 0, 0, 0.5);
+                border: 3px solid #FFD700;
+                white-space: pre-line;
+                animation: skipPulse 0.5s ease-in-out;
+            `;
+            overlay.textContent = message;
+            
+            // Add animation
+            const style = document.createElement('style');
+            style.textContent = `
+                @keyframes skipPulse {
+                    0% { transform: translate(-50%, -50%) scale(0.8); opacity: 0; }
+                    50% { transform: translate(-50%, -50%) scale(1.1); }
+                    100% { transform: translate(-50%, -50%) scale(1); opacity: 1; }
+                }
+            `;
+            document.head.appendChild(style);
+            
+            document.body.appendChild(overlay);
+            
+            // Remove after 3 seconds
+            setTimeout(() => {
+                if (overlay.parentNode) {
+                    overlay.parentNode.removeChild(overlay);
+                }
+                if (style.parentNode) {
+                    style.parentNode.removeChild(style);
+                }
+            }, 3000);
+        }
+    </script>
+    
+    <script src="js/pvz_game.js"></script>
+</body>
+</html>
