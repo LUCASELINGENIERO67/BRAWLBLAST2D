@@ -7,9 +7,15 @@ const ctx = canvas.getContext('2d');
 const minimapCanvas = document.getElementById('minimap');
 const mmCtx = minimapCanvas.getContext('2d');
 
-function resize() { canvas.width = window.innerWidth; canvas.height = window.innerHeight; }
+function resize() {
+  const vv = window.visualViewport;
+  canvas.width = Math.floor(vv?.width || window.innerWidth);
+  canvas.height = Math.floor(vv?.height || window.innerHeight);
+}
 resize();
 window.addEventListener('resize', resize);
+window.visualViewport?.addEventListener('resize', resize);
+window.addEventListener('orientationchange', () => setTimeout(resize, 250));
 
 // ── Game State ────────────────────────────
 let gameState = 'menu'; // menu | lobby | playing | win | over
@@ -286,6 +292,34 @@ function checkSecretLevelUnlocks(){
 const keys = {};
 const mouse = { x:0, y:0, down:false };
 let chatOpen = false;
+const touchInput = {
+  moveX: 0, moveY: 0, shooting: false, activeAimId: null, activeMoveId: null,
+  aimX: window.innerWidth * 0.7, aimY: window.innerHeight * 0.5
+};
+const isMobileLike = () => window.matchMedia('(pointer: coarse), (max-width: 760px)').matches;
+
+function updateOrientationGate() {
+  document.body.classList.toggle('mobile-landscape-required', isMobileLike());
+  resize();
+}
+
+async function requestLandscapeMode() {
+  if(!isMobileLike()) return;
+  try {
+    if(!document.fullscreenElement && document.documentElement.requestFullscreen) {
+      await document.documentElement.requestFullscreen({ navigationUI: 'hide' });
+    }
+  } catch (_) {}
+  try {
+    await screen.orientation?.lock?.('landscape');
+  } catch (_) {}
+  updateOrientationGate();
+}
+
+document.getElementById('rotateFullscreenBtn')?.addEventListener('click', requestLandscapeMode);
+window.addEventListener('resize', updateOrientationGate);
+window.addEventListener('orientationchange', () => setTimeout(updateOrientationGate, 250));
+updateOrientationGate();
 
 window.addEventListener('keydown', e => {
   if (chatOpen) return;
@@ -382,6 +416,108 @@ window.addEventListener('keyup', e => keys[e.code] = false);
 canvas.addEventListener('mousemove', e => { mouse.x = e.clientX; mouse.y = e.clientY; });
 canvas.addEventListener('mousedown', e => { mouse.down=true; if(gameState==='playing') tryShoot(e); });
 canvas.addEventListener('mouseup', () => mouse.down = false);
+canvas.addEventListener('contextmenu', e => e.preventDefault());
+
+function setAimPoint(x, y) {
+  mouse.x = x; mouse.y = y;
+  touchInput.aimX = x; touchInput.aimY = y;
+}
+
+canvas.addEventListener('pointerdown', e => {
+  if(e.pointerType !== 'touch' || gameState !== 'playing') return;
+  e.preventDefault();
+  if(e.clientX < window.innerWidth * 0.35) return;
+  touchInput.activeAimId = e.pointerId;
+  touchInput.shooting = true;
+  setAimPoint(e.clientX, e.clientY);
+  tryShootAt(e.clientX, e.clientY);
+});
+canvas.addEventListener('pointermove', e => {
+  if(e.pointerType !== 'touch' || touchInput.activeAimId !== e.pointerId) return;
+  e.preventDefault();
+  setAimPoint(e.clientX, e.clientY);
+});
+function endTouchAim(e) {
+  if(e.pointerType === 'touch' && touchInput.activeAimId === e.pointerId) {
+    touchInput.activeAimId = null;
+    touchInput.shooting = false;
+  }
+}
+canvas.addEventListener('pointerup', endTouchAim);
+canvas.addEventListener('pointercancel', endTouchAim);
+
+function setMobileControlsVisible(visible) {
+  const el = document.getElementById('mobileControls');
+  if(!el) return;
+  el.classList.toggle('active', visible && isMobileLike());
+}
+
+function bindHoldButton(el, onDown, onUp) {
+  if(!el) return;
+  el.addEventListener('pointerdown', e => {
+    e.preventDefault();
+    el.setPointerCapture?.(e.pointerId);
+    onDown(e);
+  });
+  const finish = e => {
+    e.preventDefault();
+    onUp?.(e);
+  };
+  el.addEventListener('pointerup', finish);
+  el.addEventListener('pointercancel', finish);
+}
+
+function setupMobileControls() {
+  const stick = document.getElementById('mobileStick');
+  const knob = document.getElementById('mobileKnob');
+  const fire = document.getElementById('mobileFireBtn');
+  const reload = document.getElementById('mobileReloadBtn');
+  const chat = document.getElementById('mobileChatBtn');
+  const menu = document.getElementById('mobileMenuBtn');
+  if(!stick || !knob) return;
+
+  const resetStick = () => {
+    touchInput.moveX = 0; touchInput.moveY = 0; touchInput.activeMoveId = null;
+    knob.style.transform = 'translate(0px, 0px)';
+  };
+  const updateStick = e => {
+    const rect = stick.getBoundingClientRect();
+    const cx = rect.left + rect.width / 2;
+    const cy = rect.top + rect.height / 2;
+    let dx = e.clientX - cx;
+    let dy = e.clientY - cy;
+    const max = rect.width * 0.34;
+    const len = Math.hypot(dx, dy);
+    if(len > max) { dx = dx / len * max; dy = dy / len * max; }
+    touchInput.moveX = dx / max;
+    touchInput.moveY = dy / max;
+    knob.style.transform = `translate(${dx}px, ${dy}px)`;
+  };
+  stick.addEventListener('pointerdown', e => {
+    e.preventDefault();
+    touchInput.activeMoveId = e.pointerId;
+    stick.setPointerCapture?.(e.pointerId);
+    updateStick(e);
+  });
+  stick.addEventListener('pointermove', e => {
+    if(touchInput.activeMoveId !== e.pointerId) return;
+    e.preventDefault();
+    updateStick(e);
+  });
+  stick.addEventListener('pointerup', e => { if(touchInput.activeMoveId === e.pointerId) resetStick(); });
+  stick.addEventListener('pointercancel', e => { if(touchInput.activeMoveId === e.pointerId) resetStick(); });
+
+  bindHoldButton(fire, e => {
+    touchInput.shooting = true;
+    if(touchInput.activeAimId === null) aimAtBestMobileTarget();
+    tryShootAt(mouse.x, mouse.y);
+  }, () => { touchInput.shooting = false; });
+  reload?.addEventListener('pointerdown', e => { e.preventDefault(); if(gameState==='playing') reloadAmmo(); });
+  chat?.addEventListener('pointerdown', e => { e.preventDefault(); if(gameState==='playing' && gameMode==='multi') openChat(); });
+  menu?.addEventListener('pointerdown', e => { e.preventDefault(); if(gameState==='playing') showMenu(); });
+}
+
+setupMobileControls();
 
 // Chat input
 const chatInputEl = document.getElementById('chatInput');
@@ -562,9 +698,17 @@ function updateSlot(playerId, name, heroId, filled) {
   slot.innerHTML = `<div class="slot-icon">${h.icon}</div><div class="slot-name">${name}</div><div class="slot-hero">${h.class}</div>`;
 }
 
+function resetPanelScroll(id) {
+  requestAnimationFrame(() => {
+    const el = document.getElementById(id);
+    if(el) el.scrollTop = 0;
+  });
+}
+
 function showLobby() {
   hideAllScreens();
   document.getElementById('lobby').style.display = 'flex';
+  resetPanelScroll('lobby');
   gameState = 'lobby';
 }
 
@@ -1095,11 +1239,41 @@ function fireBullet(x,y,vx,vy,owner,damage,color,size,piercing=false,isRayo=fals
   return b;
 }
 
-function tryShoot(e){
+function getBestMobileTarget() {
+  if(!player) return null;
+  const candidates = [
+    ...enemies.filter(e => e.alive),
+    ...(gameMode === 'multi' && opponent && opponent.alive ? [opponent] : [])
+  ];
+  let best = null;
+  let bestScore = Infinity;
+  candidates.forEach(t => {
+    const d = Math.hypot(t.x - player.x, t.y - player.y);
+    if(d > 760) return;
+    const sx = t.x - cam.x;
+    const sy = t.y - cam.y;
+    const onScreen = sx > -80 && sy > -80 && sx < canvas.width + 80 && sy < canvas.height + 80;
+    const score = d + (onScreen ? 0 : 300);
+    if(score < bestScore) { best = t; bestScore = score; }
+  });
+  return best;
+}
+
+function aimAtBestMobileTarget() {
+  if(!player) return;
+  const target = getBestMobileTarget();
+  if(target) setAimPoint(target.x - cam.x, target.y - cam.y);
+  else setAimPoint(
+    player.x - cam.x + Math.cos(player.angle || 0) * 220,
+    player.y - cam.y + Math.sin(player.angle || 0) * 220
+  );
+}
+
+function tryShootAt(clientX, clientY){
   if(!player||!player.alive) return;
   if(player.ammo<=0){reloadAmmo();return;}
   if(player.shootCooldown>0) return;
-  const wx=e.clientX+cam.x,wy=e.clientY+cam.y;
+  const wx=clientX+cam.x,wy=clientY+cam.y;
   const dx=wx-player.x,dy=wy-player.y,dist=Math.hypot(dx,dy);
   if(!dist) return;
   const spd=BULLET_SPEED*(player.heroId==='sniper_hero'?1.4:1);
@@ -1158,6 +1332,10 @@ function tryShoot(e){
   currentStreak++;
   if(currentStreak>maxStreak)maxStreak=currentStreak;
   updateAchievementProgress('sharpshooter',1);
+}
+
+function tryShoot(e){
+  tryShootAt(e.clientX, e.clientY);
 }
 
 function reloadAmmo(){
@@ -3096,6 +3274,8 @@ function useSpecial(type){
     let dx=0,dy=0;
     if(keys['KeyA']||keys['ArrowLeft'])dx-=1;if(keys['KeyD']||keys['ArrowRight'])dx+=1;
     if(keys['KeyW']||keys['ArrowUp'])dy-=1;if(keys['KeyS']||keys['ArrowDown'])dy+=1;
+    if(Math.abs(touchInput.moveX)>0.05)dx+=touchInput.moveX;
+    if(Math.abs(touchInput.moveY)>0.05)dy+=touchInput.moveY;
     if(!dx&&!dy){dx=Math.cos(player.angle);dy=Math.sin(player.angle);}
     const dl=Math.hypot(dx,dy);dx/=dl;dy/=dl;
     if(h==='ninja'){player.vx=dx*800;player.vy=dy*800;player.invincible=0.6;spawnParticles(player.x,player.y,15,'#ff0066',200,false,5);}
@@ -4225,6 +4405,8 @@ function useSpecial(type){
         let dx=0,dy=0;
         if(keys['KeyA']||keys['ArrowLeft'])dx-=1;if(keys['KeyD']||keys['ArrowRight'])dx+=1;
         if(keys['KeyW']||keys['ArrowUp'])dy-=1;if(keys['KeyS']||keys['ArrowDown'])dy+=1;
+        if(Math.abs(touchInput.moveX)>0.05)dx+=touchInput.moveX;
+        if(Math.abs(touchInput.moveY)>0.05)dy+=touchInput.moveY;
         if(dx!==0||dy!==0){
           const len=Math.hypot(dx,dy);
           dx/=len;dy/=len;
@@ -6591,7 +6773,7 @@ function update(ts){
   if(gameState!=='playing'){requestAnimationFrame(update);return;}
   gameTime+=dt;shakeAmt*=0.85;if(flashAlpha>0)flashAlpha-=dt*3;
 
-  ['shield','bomb','dash'].forEach(t=>{if(specials[t].cd>0){specials[t].cd-=dt;if(specials[t].cd<0)specials[t].cd=0;}});
+  ['shield','bomb','dash','ultimate'].forEach(t=>{if(specials[t].cd>0){specials[t].cd-=dt;if(specials[t].cd<0)specials[t].cd=0;}});
   updateSpecialUI();
 
   // ── Player update ──
@@ -6599,6 +6781,8 @@ function update(ts){
     let dx=0,dy=0;
     if(keys['KeyA']||keys['ArrowLeft'])dx-=1;if(keys['KeyD']||keys['ArrowRight'])dx+=1;
     if(keys['KeyW']||keys['ArrowUp'])dy-=1;if(keys['KeyS']||keys['ArrowDown'])dy+=1;
+    if(Math.abs(touchInput.moveX)>0.05)dx+=touchInput.moveX;
+    if(Math.abs(touchInput.moveY)>0.05)dy+=touchInput.moveY;
     const dl=Math.hypot(dx,dy);
     if(dl>0){dx/=dl;dy/=dl;player.walkCycle+=dt*10;player.bodyBob=Math.sin(player.walkCycle)*3;}
     const spd=player.speed*(player.boosted?2:1)*(player.speedBoost||1);
@@ -6606,6 +6790,10 @@ function update(ts){
     player.vy=(player.vy||0)*0.85+dy*spd*0.15;
     player.x+=player.vx*dt;player.y+=player.vy*dt;
     player.angle=Math.atan2(mouse.y+cam.y-player.y,mouse.x+cam.x-player.x);
+    if(touchInput.shooting && isMobileLike()){
+      if(touchInput.activeAimId === null) aimAtBestMobileTarget();
+      tryShootAt(mouse.x, mouse.y);
+    }
     const{tx,ty}=worldToTile(player.x,player.y);
     // Heal tile logic
     if(tileMap[ty]&&tileMap[ty][tx]===25){
@@ -9322,21 +9510,24 @@ function render(ts){
 
 // ── Menu Functions ───────────────────────
 function hideAllScreens(){
-  ['menu','levelSelect','heroSelect','lobby','overlay','unlockScreen','achievements','shop','resetConfirm'].forEach(id=>document.getElementById(id).style.display='none');
+  ['menu','levelSelect','heroSelect','lobby','overlay','unlockScreen','achievements','shop','resetConfirm','commandConsole'].forEach(id=>document.getElementById(id).style.display='none');
   ['hud','specialBar','ammoBar','minimap','escHint','controls','opponentHud','chatBox','killFeed'].forEach(id=>document.getElementById(id).style.display='none');
   document.getElementById('modeBadge').style.display='none';
   document.getElementById('connectionDot').style.display='none';
+  setMobileControlsVisible(false);
 }
 
 function showMenu(){
   gameState='menu';
   hideAllScreens();
   document.getElementById('menu').style.display='flex';
+  resetPanelScroll('menu');
 }
 
 function showAchievements(){
   hideAllScreens();
   document.getElementById('achievements').style.display='flex';
+  resetPanelScroll('achievements');
   buildAchievementGrid();
 }
 
@@ -9359,6 +9550,7 @@ function buildAchievementGrid(){
 function showLevelSelect(){
   hideAllScreens();
   document.getElementById('levelSelect').style.display='flex';
+  resetPanelScroll('levelSelect');
   selectedLevelIndex=0;
   // Initialize hardmode toggle state
   document.getElementById('hardModeToggle').checked = hardMode;
@@ -9418,6 +9610,7 @@ function showHeroSelect(fromLevel,levelId=null){
   heroSelectPendingLevel=levelId;heroSelectPreviewId=selectedHeroId;
   hideAllScreens();
   document.getElementById('heroSelect').style.display='flex';
+  resetPanelScroll('heroSelect');
   buildHeroGrid();renderHeroPreview(heroSelectPreviewId);
 }
 function cancelHeroSelect(){heroSelectPendingLevel?showLevelSelect():showMenu();}
@@ -9447,6 +9640,7 @@ function renderHeroPreview(heroId){
 
 // ── Start Game ───────────────────────────
 function startGame(levelId, mode='solo'){
+  requestLandscapeMode();
   currentLevel=levelId;gameMode=mode;
   const cfg=LEVEL_CONFIGS.find(l=>l.id===levelId)||LEVEL_CONFIGS[0];
   score=0;gameTime=0;particles=[];floatingTexts=[];bullets=[];opponentBullets=[];bombs=[];
@@ -9493,6 +9687,7 @@ function startGame(levelId, mode='solo'){
   document.getElementById('minimap').style.display='block';
   document.getElementById('escHint').style.display='block';
   document.getElementById('controls').style.display='block';
+  setMobileControlsVisible(true);
   if(mode==='multi'){
     document.getElementById('opponentHud').style.display='block';
     document.getElementById('chatBox').style.display='flex';
@@ -9529,6 +9724,7 @@ function toggleHardMode(){
 function showCommandConsole(){
   hideAllScreens();
   document.getElementById('commandConsole').style.display = 'flex';
+  resetPanelScroll('commandConsole');
   document.getElementById('commandInput').value = '';
   document.getElementById('commandInput').focus();
   addCommandOutput('Consola de comandos activada. Escribe "help" para ver trucos disponibles.', 'system');
@@ -9691,6 +9887,7 @@ function showOverlay(win,isMulti=false){
   gameState=win?'win':'over';
   const ov=document.getElementById('overlay'),title=document.getElementById('overlayTitle'),sub=document.getElementById('overlaySub');
   ov.style.display='flex';
+  resetPanelScroll('overlay');
   if(win){title.className='overlay-title win-title';title.textContent=isMulti?'¡GANASTE! 🏆':'¡VICTORIA! 🏆';sub.textContent=isMulti?`¡Eliminaste a ${opponentName}! • ${score} pts`:`Nivel ${currentLevel} completado • ${score} pts`;}
   else{title.className='overlay-title lose-title';title.textContent=isMulti?'ELIMINADO 💀':'ELIMINADO 💀';sub.textContent=`Puntos: ${score}`;}
 }
@@ -9699,6 +9896,7 @@ function showUnlockScreen(heroDef){
   gameState='win';
   const sc=document.getElementById('unlockScreen'),card=document.getElementById('unlockCard');
   sc.style.display='flex';
+  resetPanelScroll('unlockScreen');
   const sb=(n,c,l)=>`<div style="display:flex;align-items:center;gap:6px;margin:3px 0"><span style="font-size:10px;color:#aabbff;width:65px">${l}</span>${Array.from({length:5},(_,i)=>`<div style="width:12px;height:12px;border-radius:50%;background:${i<n?c:'#333'}"></div>`).join('')}</div>`;
   card.innerHTML=`<div class="unlock-card"><div class="unlock-hero-icon">${heroDef.icon}</div><div class="unlock-hero-name">${heroDef.name}</div><div style="color:#aabbff;font-size:12px;margin-bottom:6px">${heroDef.class}</div><div class="unlock-hero-desc">${heroDef.desc}</div><div class="unlock-hero-abilities">${heroDef.abilities.map(a=>`<div class="ability-tag">${a.icon} ${a.name}</div>`).join('')}</div><div style="margin-top:8px">${sb(heroDef.stats.poder,'#ff6600','⚔ PODER')}${sb(heroDef.stats.vida,'#00ff88','❤ VIDA')}${sb(heroDef.stats.velocidad,'#00ccff','⚡ VELOCIDAD')}</div></div>`;
 }
@@ -9709,6 +9907,7 @@ function closeUnlock(){document.getElementById('unlockScreen').style.display='no
 function showShop(){
   hideAllScreens();
   document.getElementById('shop').style.display='flex';
+  resetPanelScroll('shop');
   document.getElementById('shopCoinDisplay').textContent=coins+' 💰';
   buildShopGrid();
 }
@@ -9748,6 +9947,7 @@ function purchaseHero(hero){
 }
 
 function showResetConfirm(){
+  resetPanelScroll('resetConfirm');
   document.getElementById('resetConfirm').style.display='flex';
 }
 

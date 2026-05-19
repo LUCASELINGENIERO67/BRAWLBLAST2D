@@ -2,15 +2,35 @@
 <html lang="es">
 <head>
 <meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
 <title>Brawl Blast 2D — Multijugador</title>
 <style>
   @import url('https://fonts.googleapis.com/css2?family=Russo+One&family=Exo+2:wght@400;700;900&display=swap');
-  * { margin:0; padding:0; box-sizing:border-box; }
-  body { background:#000000; overflow:hidden; font-family:'Exo 2',sans-serif; color:#fff; }
-  canvas { display:block; image-rendering:pixelated; }
-  #gameContainer { position:relative; width:100vw; height:100vh; }
+  * { margin:0; padding:0; box-sizing:border-box; -webkit-tap-highlight-color:transparent; }
+  html, body { width:100%; height:100%; overscroll-behavior:none; touch-action:manipulation; }
+  body { background:#000000; overflow:hidden; font-family:'Exo 2',sans-serif; color:#fff; user-select:none; -webkit-user-select:none; }
+  canvas { display:block; image-rendering:pixelated; touch-action:none; }
+  #gameContainer { position:relative; width:100vw; height:100vh; height:100dvh; overflow:hidden; }
   #ui { position:absolute; top:0; left:0; width:100%; height:100%; pointer-events:none; z-index:10; }
+
+  #rotateNotice {
+    position:fixed; inset:0; z-index:600; display:none;
+    align-items:center; justify-content:center; flex-direction:column;
+    background:radial-gradient(ellipse at 50% 25%, #1a0000 0%, #050000 70%);
+    text-align:center; padding:28px; pointer-events:all;
+  }
+  .rotate-icon { font-size:64px; margin-bottom:18px; animation:tiltPhone 1.4s ease-in-out infinite; }
+  .rotate-title { font-family:'Russo One',sans-serif; color:#FFD700; font-size:28px; letter-spacing:2px; margin-bottom:10px; }
+  .rotate-copy { color:#ffc2c2; font-size:15px; line-height:1.45; max-width:330px; margin-bottom:20px; }
+  .rotate-btn {
+    border:none; border-radius:28px; padding:12px 22px;
+    background:linear-gradient(135deg,#00cc88,#00ffaa); color:#001a0e;
+    font-family:'Russo One',sans-serif; font-size:13px; letter-spacing:1px;
+  }
+  @keyframes tiltPhone {
+    0%,100% { transform:rotate(0deg); }
+    45%,55% { transform:rotate(90deg); }
+  }
 
   /* ── MENU ── */
   #menu {
@@ -207,6 +227,7 @@
   .btn-shield { background:radial-gradient(circle,#4488ff,#1144bb); box-shadow:0 0 14px #4488ff; }
   .btn-bomb { background:radial-gradient(circle,#ff6600,#aa2200); box-shadow:0 0 14px #ff6600; }
   .btn-dash { background:radial-gradient(circle,#00ffcc,#008866); box-shadow:0 0 14px #00ffcc; }
+  .btn-ultimate { background:radial-gradient(circle,#ffdd00,#aa2200); box-shadow:0 0 14px #ff9900; }
   .special-key { color:rgba(255,255,255,0.45); font-size:9px; font-weight:900; position:absolute; top:-15px; left:50%; transform:translateX(-50%); }
 
   /* ── AMMO ── */
@@ -282,6 +303,52 @@
   .conn-online { background:#00ff88; box-shadow:0 0 6px #00ff88; }
   .conn-offline { background:#ff3355; }
 
+  /* ── MOBILE CONTROLS ── */
+  #mobileControls {
+    position:absolute; inset:0; display:none; pointer-events:none; z-index:35;
+  }
+  .mobile-stick {
+    position:absolute; left:22px; bottom:22px; width:132px; height:132px;
+    border-radius:50%; border:2px solid rgba(255,255,255,0.18);
+    background:rgba(0,0,10,0.34); box-shadow:0 10px 30px rgba(0,0,0,0.35);
+    pointer-events:all; touch-action:none; backdrop-filter:blur(6px);
+  }
+  .mobile-stick::before {
+    content:''; position:absolute; inset:28px; border-radius:50%;
+    border:1px dashed rgba(255,255,255,0.18);
+  }
+  .mobile-knob {
+    position:absolute; left:50%; top:50%; width:56px; height:56px;
+    margin:-28px 0 0 -28px; border-radius:50%;
+    background:radial-gradient(circle,#00ffcc,#007a66);
+    box-shadow:0 0 18px rgba(0,255,200,0.65);
+    transition:transform 0.08s linear;
+  }
+  .mobile-actions {
+    position:absolute; right:18px; bottom:20px; width:170px; height:178px;
+    pointer-events:none;
+  }
+  .mobile-btn {
+    position:absolute; width:62px; height:62px; border-radius:50%; border:3px solid rgba(255,255,255,0.22);
+    color:#fff; font-size:24px; font-weight:900; display:flex; align-items:center; justify-content:center;
+    pointer-events:all; touch-action:none; backdrop-filter:blur(5px);
+    box-shadow:0 8px 24px rgba(0,0,0,0.35);
+  }
+  .mobile-fire { right:0; bottom:42px; width:78px; height:78px; font-size:30px; background:radial-gradient(circle,#ff7a1a,#b52200); box-shadow:0 0 18px rgba(255,100,0,0.7); }
+  .mobile-reload { right:82px; bottom:0; background:radial-gradient(circle,#00aaff,#004bba); }
+  .mobile-chat { right:96px; bottom:76px; background:radial-gradient(circle,#7B2FBE,#3a1266); font-size:22px; }
+  .mobile-menu { right:28px; bottom:120px; width:50px; height:50px; background:rgba(0,0,0,0.55); font-size:22px; }
+  .mobile-hint {
+    position:absolute; left:50%; bottom:8px; transform:translateX(-50%);
+    color:rgba(255,255,255,0.4); font-size:10px; letter-spacing:0.5px; white-space:nowrap;
+  }
+
+  #menu, #lobby, #levelSelect, #heroSelect, #overlay, #unlockScreen, #achievements, #shop, #resetConfirm, #commandConsole {
+    overflow-y:auto; overflow-x:hidden; pointer-events:all; touch-action:pan-y;
+    -webkit-overflow-scrolling:touch; overscroll-behavior:contain;
+    scrollbar-width:thin; scrollbar-color:rgba(255,215,0,0.55) rgba(255,255,255,0.06);
+  }
+
   /* ── ACHIEVEMENTS ── */
   #achievements {
     position:absolute; inset:0;
@@ -341,6 +408,117 @@
   .btn-reset-confirm:hover { transform:scale(1.05); box-shadow:0 6px 20px rgba(255,68,68,0.5); }
   .btn-reset-cancel { background:linear-gradient(135deg,#666,#888); color:#fff; border:none; border-radius:28px; padding:12px 32px; font-family:'Russo One',sans-serif; font-size:15px; cursor:pointer; pointer-events:all; transition:all 0.15s; }
   .btn-reset-cancel:hover { transform:scale(1.05); box-shadow:0 6px 20px rgba(100,100,100,0.5); }
+
+  @media (max-width: 760px), (pointer: coarse) {
+    #menu, #lobby, #levelSelect, #heroSelect, #overlay, #unlockScreen, #achievements, #shop, #resetConfirm, #commandConsole {
+      min-height:100dvh;
+      padding:calc(14px + env(safe-area-inset-top)) calc(14px + env(safe-area-inset-right)) calc(18px + env(safe-area-inset-bottom)) calc(14px + env(safe-area-inset-left));
+    }
+    #menu { justify-content:center; }
+    #lobby, #levelSelect, #overlay, #unlockScreen, #resetConfirm { justify-content:flex-start; }
+    .menu-title { font-size:42px; letter-spacing:3px; text-align:center; }
+    .menu-sub { font-size:11px; letter-spacing:5px; margin-bottom:22px; }
+    .menu-btn { width:min(86vw,310px); padding:13px 0; font-size:14px; margin:6px; }
+    .lobby-title, .level-title, .ach-title, .shop-title { font-size:26px; text-align:center; padding:0 12px; }
+    .lobby-box { width:calc(100vw - 28px); padding:22px 18px; border-radius:16px; }
+    #lobbyPlayers { gap:8px; }
+    .player-slot { width:calc(50% - 4px); padding:10px 6px; }
+    #levelSelect, #heroSelect, #achievements, #shop { justify-content:flex-start; padding-bottom:120px; }
+    .level-grid { display:grid; grid-template-columns:repeat(2,minmax(130px,1fr)); gap:12px; width:calc(100vw - 28px); max-width:420px; }
+    .level-card { width:100%; height:132px; border-radius:14px; }
+    .level-card .lv-num { font-size:30px; }
+    .hero-grid, .ach-grid, .shop-grid { display:grid; grid-template-columns:repeat(2,minmax(135px,1fr)); gap:10px; width:calc(100vw - 24px); padding:0; }
+    .hero-card, .ach-card, .shop-card { width:100%; min-height:132px; border-radius:14px; padding:10px 8px; }
+    .hero-icon, .ach-icon { font-size:38px; }
+    .shop-icon { font-size:42px; }
+    .hero-preview-panel { width:calc(100vw - 24px); padding:12px; margin:12px 0; }
+    .preview-abilities { gap:6px; }
+    .preview-ability { min-width:68px; padding:5px 7px; }
+    #hud { padding:8px; align-items:flex-start; gap:6px; }
+    .hud-panel { padding:7px 9px; border-radius:10px; }
+    .hud-hp-bar { width:118px; height:12px; }
+    .hud-label { font-size:9px; }
+    .hud-score { font-size:15px; }
+    .hud-coin-display { font-size:12px; }
+    #opponentHud { top:58px; }
+    .opp-hp-bar { width:160px; height:9px; }
+    #specialBar { left:auto; right:12px; bottom:202px; transform:none; gap:8px; flex-direction:column; }
+    .special-btn { width:48px; height:48px; font-size:19px; }
+    .special-key { display:none; }
+    #ammoBar { bottom:10px; gap:5px; }
+    .ammo-dot { width:13px; height:13px; }
+    #minimap { width:84px; height:63px; right:8px; top:100px; bottom:auto; }
+    #chatBox { left:8px; bottom:170px; width:190px; }
+    #chatInput { left:8px; bottom:158px; width:calc(100vw - 16px); font-size:16px; padding:10px 12px; }
+    #killFeed { top:108px; right:8px; width:180px; }
+    #escHint, #controls { display:none!important; }
+    #mobileControls { display:none; }
+    #mobileControls.active { display:block; }
+    .overlay-title { font-size:38px; text-align:center; }
+    .overlay-sub { font-size:15px; text-align:center; padding:0 16px; }
+    .unlock-title, .reset-title { font-size:30px; text-align:center; }
+    .unlock-card { width:calc(100vw - 32px); min-width:0; padding:20px 16px; }
+    .reset-buttons { flex-direction:column; width:min(86vw,310px); }
+  }
+
+  @media (max-height: 470px) and (orientation: landscape) {
+    #menu, #lobby, #levelSelect, #heroSelect, #overlay, #unlockScreen, #achievements, #shop, #resetConfirm, #commandConsole { padding:10px 16px 16px; }
+    #menu { justify-content:center; }
+    .menu-title { font-size:34px; margin-bottom:2px; }
+    .menu-sub { margin-bottom:8px; font-size:10px; }
+    .menu-btn { padding:8px 0; margin:3px; font-size:12px; width:260px; }
+    .lobby-title, .level-title, .ach-title, .shop-title { font-size:20px; margin-bottom:10px; letter-spacing:2px; }
+    #lobby { gap:8px; }
+    .lobby-box { width:min(92vw,760px); padding:12px 16px; border-radius:14px; }
+    .lobby-box label { margin-top:8px; margin-bottom:4px; font-size:9px; letter-spacing:2px; }
+    .lobby-input { padding:8px 12px; border-radius:10px; font-size:14px; }
+    #lobbyStatus { margin-top:8px; min-height:18px; font-size:13px; }
+    #lobbyPlayers { margin-top:8px; gap:10px; }
+    .player-slot { width:180px; padding:8px 10px; display:grid; grid-template-columns:auto 1fr; column-gap:8px; align-items:center; }
+    .slot-icon { grid-row:1 / span 2; margin:0; font-size:25px; }
+    .slot-name { font-size:12px; text-align:left; }
+    .slot-hero { font-size:10px; text-align:left; }
+    #btnConnect { margin-top:10px!important; padding:10px 18px; }
+    #btnStartLobby { margin-top:8px; padding:10px; border-radius:12px; font-size:13px; }
+    .level-grid { grid-template-columns:repeat(4,minmax(100px,1fr)); gap:9px; width:min(94vw,720px); max-width:none; }
+    .level-card { height:92px; border-radius:12px; }
+    .level-card .lv-num { font-size:24px; }
+    .level-card .lv-name { font-size:10px; }
+    .level-card .lv-diff { font-size:9px; margin-top:4px; padding:2px 8px; }
+    #heroSelect .level-title { margin-bottom:8px!important; }
+    .hero-grid, .ach-grid, .shop-grid { grid-template-columns:repeat(4,minmax(110px,1fr)); gap:8px; width:min(94vw,760px); }
+    .hero-card, .ach-card, .shop-card { min-height:96px; padding:8px 6px; border-radius:12px; }
+    .hero-icon, .ach-icon { font-size:28px; margin-bottom:2px; }
+    .shop-icon { font-size:32px; margin-bottom:3px; }
+    .hero-name, .ach-name, .shop-name { font-size:11px; }
+    .hero-class, .unlock-req, .ach-desc, .shop-desc { font-size:9px; }
+    .hero-abilities-preview, .hero-stats { margin-top:3px; }
+    .hero-preview-panel { width:min(92vw,620px); max-width:620px!important; margin:8px 0; padding:10px; }
+    .hero-preview-panel > div:first-child { font-size:34px!important; }
+    .preview-name { font-size:17px; }
+    .preview-desc { font-size:11px; margin:3px 0; }
+    .preview-abilities { margin:5px 0; }
+    .preview-ability { padding:3px 6px; min-width:62px; }
+    .pa-icon { font-size:15px; }
+    .pa-name, .pa-key { font-size:8px; }
+    .btn-select-hero { padding:9px 18px; font-size:12px; }
+    .mobile-stick { width:112px; height:112px; left:18px; bottom:16px; }
+    .mobile-actions { right:14px; bottom:12px; transform:scale(0.9); transform-origin:bottom right; }
+    #specialBar { right:178px; bottom:18px; flex-direction:row; }
+    #opponentHud { top:48px; }
+    .overlay-title { font-size:34px; margin-bottom:8px; }
+    .overlay-sub { margin-bottom:10px; }
+    .unlock-title { font-size:24px; margin-bottom:4px; }
+    .unlock-card { padding:12px 16px; margin:8px; }
+    .unlock-hero-icon { font-size:44px; }
+    .unlock-hero-name { font-size:20px; }
+    .reset-msg { font-size:13px; margin-bottom:12px; }
+    .reset-buttons { flex-direction:row; }
+  }
+
+  @media (orientation: portrait) and (pointer: coarse) {
+    body.mobile-landscape-required #rotateNotice { display:flex; }
+  }
 </style>
 </head>
 <body>
@@ -483,6 +661,17 @@
     <input id="chatInput" type="text" placeholder="T = chat..." maxlength="60">
     <!-- KILL FEED -->
     <div id="killFeed"></div>
+    <!-- MOBILE CONTROLS -->
+    <div id="mobileControls" aria-hidden="true">
+      <div class="mobile-stick" id="mobileStick"><div class="mobile-knob" id="mobileKnob"></div></div>
+      <div class="mobile-actions">
+        <button class="mobile-btn mobile-menu" id="mobileMenuBtn" type="button" aria-label="Menú">☰</button>
+        <button class="mobile-btn mobile-chat" id="mobileChatBtn" type="button" aria-label="Chat">💬</button>
+        <button class="mobile-btn mobile-reload" id="mobileReloadBtn" type="button" aria-label="Recargar">R</button>
+        <button class="mobile-btn mobile-fire" id="mobileFireBtn" type="button" aria-label="Disparar">●</button>
+      </div>
+      <div class="mobile-hint">Arrastra en la derecha para apuntar</div>
+    </div>
     <!-- OVERLAY -->
     <div id="overlay">
       <div class="overlay-title" id="overlayTitle"></div>
@@ -539,6 +728,12 @@
     <div id="escHint">ESC = Menú | T = Chat</div>
     <div id="controls">WASD = Mover<br>Click = Disparar<br>Q = Escudo<br>E = Bomba<br>F = Dash<br>R = Recargar<br>T = Chat<br>ESC = Menú</div>
   </div>
+</div>
+<div id="rotateNotice">
+  <div class="rotate-icon">📱</div>
+  <div class="rotate-title">GIRA EL TELÉFONO</div>
+  <div class="rotate-copy">Brawl Blast en mobile está optimizado para jugar en horizontal.</div>
+  <button class="rotate-btn" id="rotateFullscreenBtn" type="button">PANTALLA COMPLETA</button>
 </div>
 <script src="js/game.js"></script>
 </body>
