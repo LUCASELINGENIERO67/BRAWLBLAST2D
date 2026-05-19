@@ -456,15 +456,27 @@ function bindHoldButton(el, onDown, onUp) {
   if(!el) return;
   el.addEventListener('pointerdown', e => {
     e.preventDefault();
+    e.stopPropagation();
     el.setPointerCapture?.(e.pointerId);
     onDown(e);
   });
   const finish = e => {
     e.preventDefault();
+    e.stopPropagation();
     onUp?.(e);
   };
   el.addEventListener('pointerup', finish);
   el.addEventListener('pointercancel', finish);
+}
+
+function bindTapButton(el, onTap) {
+  if(!el) return;
+  el.addEventListener('pointerdown', e => {
+    if(e.pointerType === 'mouse') return;
+    e.preventDefault();
+    e.stopPropagation();
+    onTap(e);
+  });
 }
 
 function setupMobileControls() {
@@ -495,6 +507,7 @@ function setupMobileControls() {
   };
   stick.addEventListener('pointerdown', e => {
     e.preventDefault();
+    e.stopPropagation();
     touchInput.activeMoveId = e.pointerId;
     stick.setPointerCapture?.(e.pointerId);
     updateStick(e);
@@ -502,22 +515,38 @@ function setupMobileControls() {
   stick.addEventListener('pointermove', e => {
     if(touchInput.activeMoveId !== e.pointerId) return;
     e.preventDefault();
+    e.stopPropagation();
     updateStick(e);
   });
-  stick.addEventListener('pointerup', e => { if(touchInput.activeMoveId === e.pointerId) resetStick(); });
-  stick.addEventListener('pointercancel', e => { if(touchInput.activeMoveId === e.pointerId) resetStick(); });
+  stick.addEventListener('pointerup', e => { e.stopPropagation(); if(touchInput.activeMoveId === e.pointerId) resetStick(); });
+  stick.addEventListener('pointercancel', e => { e.stopPropagation(); if(touchInput.activeMoveId === e.pointerId) resetStick(); });
 
   bindHoldButton(fire, e => {
     touchInput.shooting = true;
     if(touchInput.activeAimId === null) aimAtBestMobileTarget();
     tryShootAt(mouse.x, mouse.y);
   }, () => { touchInput.shooting = false; });
-  reload?.addEventListener('pointerdown', e => { e.preventDefault(); if(gameState==='playing') reloadAmmo(); });
-  chat?.addEventListener('pointerdown', e => { e.preventDefault(); if(gameState==='playing' && gameMode==='multi') openChat(); });
-  menu?.addEventListener('pointerdown', e => { e.preventDefault(); if(gameState==='playing') showMenu(); });
+  bindTapButton(reload, () => { if(gameState==='playing') reloadAmmo(); });
+  bindTapButton(chat, () => { if(gameState==='playing' && gameMode==='multi') openChat(); });
+  bindTapButton(menu, () => { if(gameState==='playing') showMenu(); });
 }
 
 setupMobileControls();
+
+function setupSpecialTouchControls() {
+  [
+    ['btnShield', 'shield'],
+    ['btnBomb', 'bomb'],
+    ['btnDash', 'dash'],
+    ['btnUltimate', 'ultimate']
+  ].forEach(([id, type]) => {
+    bindTapButton(document.getElementById(id), () => {
+      if(gameState === 'playing') useSpecial(type);
+    });
+  });
+}
+
+setupSpecialTouchControls();
 
 // Chat input
 const chatInputEl = document.getElementById('chatInput');
